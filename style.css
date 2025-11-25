@@ -1,55 +1,64 @@
-/* خطوط وألوان */
 @import url('https://fonts.googleapis.com/css2?family=Tajawal:wght@400;700&family=Amiri&display=swap');
 
-body {
-  font-family: 'Tajawal', sans-serif;
-  direction: rtl;
-  background: linear-gradient(120deg,#f2f2f2,#d9d9d9);
-  color: #000;
+:root{
+  --accent: #404F68;
+  --muted: #7A859D;
+  --bg1: linear-gradient(120deg,#f2f2f2,#d9d9d9);
+  --card-bg: rgba(255,255,255,0.95);
+  --text: #111;
+  --radius: 10px;
+}
+
+*{box-sizing:border-box}
+body{
+  font-family:'Tajawal',sans-serif;
+  direction:rtl;
   margin:0;
   padding:20px;
-  transition: background 0.5s, color 0.5s;
+  background:var(--bg1);
+  color:var(--text);
+  transition:background 0.35s,color 0.35s;
 }
 
-body.dark {
-  background: linear-gradient(120deg,#1a1a1a,#333);
-  color: #eee;
+body.dark{
+  --bg1: linear-gradient(120deg,#0f1720,#20262b);
+  --card-bg: rgba(24,24,24,0.85);
+  --text: #e9eef6;
 }
 
-.container { max-width:1000px; margin:auto; }
+.container{max-width:1100px;margin:0 auto}
+header{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:18px}
+header h1{font-family:'Amiri',serif;margin:0;font-size:1.6rem;display:flex;align-items:center;gap:10px}
+.theme-controls{display:flex;gap:8px;align-items:center}
+.theme-controls button{background:var(--accent);border:none;color:#fff;padding:8px 12px;border-radius:8px;cursor:pointer}
+.theme-controls select{padding:8px;border-radius:8px;border:1px solid #ccc}
 
-header h1 { text-align:center; font-family:'Amiri',serif; margin-bottom:15px; }
+/* layout */
+.grid{display:grid;grid-template-columns:1fr 1fr 1fr;gap:18px}
+@media (max-width:980px){.grid{grid-template-columns:1fr 1fr}}
+@media (max-width:640px){.grid{grid-template-columns:1fr}}
 
-.theme-controls { text-align:left; margin-bottom:15px; display:flex; gap:10px; flex-wrap:wrap; }
+.card{background:var(--card-bg);padding:16px;border-radius:var(--radius);box-shadow:0 6px 18px rgba(0,0,0,0.06)}
+.input-section textarea{resize:vertical}
+.row{display:flex;gap:10px}
+.row .col{flex:1}
+.params .row{margin-top:8px}
+.params label{display:block;margin-bottom:6px;font-weight:600}
 
-textarea, input, select {
-  width:100%; margin-bottom:10px; padding:10px; font-size:1em;
-  border-radius:8px; border:1px solid #ccc; transition: border-color 0.3s;
-}
+/* buttons */
+.buttons{display:flex;gap:10px;margin-top:8px;flex-wrap:wrap}
+button{background:var(--accent);color:#fff;border:none;padding:10px 14px;border-radius:8px;cursor:pointer;font-weight:700}
+button.muted{background:transparent;color:var(--muted);border:1px solid rgba(0,0,0,0.06)}
+button:active{transform:translateY(1px)}
 
-textarea:focus, input:focus, select:focus { border-color:#404F68; outline:none; }
+.output-box{background:rgba(0,0,0,0.03);padding:12px;border-radius:8px;min-height:48px;white-space:pre-wrap;word-break:break-word}
 
-button {
-  margin:5px; padding:12px 20px;
-  cursor:pointer; font-weight:bold;
-  border:none; border-radius:8px;
-  color:#fff; background-color:#404F68;
-  box-shadow:0 4px 6px rgba(0,0,0,0.2);
-  transition: all 0.3s;
-}
+/* tables */
+.table-wrap{overflow:auto}
+table{width:100%;border-collapse:collapse;margin-top:10px;font-size:0.95rem}
+thead th{background:linear-gradient(90deg,var(--accent),var(--muted));color:#fff;padding:8px;text-align:center}
+tbody td{padding:8px;border:1px solid rgba(0,0,0,0.06);text-align:center}
+tbody tr:nth-child(even){background:rgba(0,0,0,0.02)}
 
-button:hover {
-  transform: translateY(-2px);
-  box-shadow:0 6px 10px rgba(0,0,0,0.3);
-}
-
-table { border-collapse: collapse; width:100%; margin-top:10px; border-radius:8px; overflow:hidden; }
-table, th, td { border:1px solid #ccc; padding:8px; text-align:center; }
-thead { background:linear-gradient(to right,#404F68,#7A859D); color:#fff; }
-tbody tr:nth-child(even) { background:#f2f2f2; }
-body.dark tbody tr:nth-child(even) { background:#333; }
-
-pre { background: rgba(64,79,104,0.1); padding:10px; border-radius:8px; white-space:pre-wrap; word-wrap:break-word; }
-
-.input-section, .output-section { margin-bottom:30px; padding:20px; background:rgba(255,255,255,0.9); border-radius:10px; box-shadow:0 4px 10px rgba(0,0,0,0.1); transition: background 0.5s; }
-body.dark .input-section, body.dark .output-section { background:rgba(34,34,34,0.9); }
+/* small helpers */
+.sr-only{position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap;border:0}
