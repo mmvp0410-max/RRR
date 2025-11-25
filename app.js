@@ -1,46 +1,65 @@
-// app.js (مصحح وآمن)
+// Professional client-side cipher app (encryption + decryption full-ready)
 
-// الحروف
 const latin_letters = "ABCDEFGHIJKLMNOPQRSTUVWXYZ".split("");
-const arabic_letters = ["ا","أ","إ","آ","ب","ت","ث","ج","ح","خ","د","ذ","ر","ز",
-  "س","ش","ص","ض","ط","ظ","ع","غ","ف","ق","ك","ل","م","ن","ه","و","ؤ","ي","ى","ئ","ة"];
+const arabic_letters = [
+  "ا","أ","إ","آ","ب","ت","ث","ج","ح","خ","د","ذ","ر","ز",
+  "س","ش","ص","ض","ط","ظ","ع","غ","ف","ق","ك","ل","م","ن",
+  "ه","و","ؤ","ي","ى","ئ","ة"
+];
 
-// أمان: تحقق أن DOM جاهز
+// store last keystream for reliable decryption (used positions have values, others null)
+window._lastKeyStream = null;
+window._lastKeyMeta = null;
+
 document.addEventListener("DOMContentLoaded", () => {
-
-  // عناصر
-  const toggleThemeBtn = document.getElementById("toggleTheme");
-  const themeColorSelect = document.getElementById("themeColor");
-  const encryptBtn = document.getElementById("encrypt_btn");
-  const decryptBtn = document.getElementById("decrypt_btn");
   const plaintextEl = document.getElementById("plaintext");
   const cipherOut = document.getElementById("cipher_out");
   const plainOut = document.getElementById("plain_out");
   const distSelect = document.getElementById("dist");
   const seedEl = document.getElementById("seed");
+  const paramsDiv = document.getElementById("params");
+  const encryptBtn = document.getElementById("encrypt_btn");
+  const decryptBtn = document.getElementById("decrypt_btn");
+  const clearBtn = document.getElementById("clear_btn");
   const encTable = document.getElementById("enc_table");
   const decTable = document.getElementById("dec_table");
   const chartCanvas = document.getElementById("dist_chart");
+  const themeToggle = document.getElementById("toggleTheme");
+  const themeColor = document.getElementById("themeColor");
 
-  // الوضع الليلي
-  if (toggleThemeBtn) toggleThemeBtn.addEventListener("click", () => document.body.classList.toggle("dark"));
+  let chart = null;
 
-  // تغيير لون الثيم: حماية من عدم وجود thead
-  if (themeColorSelect) {
-    themeColorSelect.addEventListener("change", (e) => {
-      const color = e.target.value;
-      document.querySelectorAll("button").forEach(b => b.style.background = color);
-      const firstThead = document.querySelector("thead");
-      if (firstThead) firstThead.style.background = color;
-    });
+  // render params UI based on distribution
+  function renderParams() {
+    const dist = distSelect.value;
+    paramsDiv.innerHTML = "";
+    if (dist === "Uniform") {
+      paramsDiv.innerHTML = `<div class="row"><div class="col"><label>Min (a)</label><input id="param_a" type="number" value="0" /></div>
+                             <div class="col"><label>Max (b)</label><input id="param_b" type="number" value="25" /></div></div>`;
+    } else if (dist === "Normal") {
+      paramsDiv.innerHTML = `<div class="row"><div class="col"><label>Mean (μ)</label><input id="param_mean" type="number" value="0" /></div>
+                             <div class="col"><label>SD (σ)</label><input id="param_sd" type="number" value="2" /></div></div>`;
+    } else if (dist === "Poisson") {
+      paramsDiv.innerHTML = `<label>Lambda (λ)</label><input id="param_lambda" type="number" value="2" step="0.1" />`;
+    } else if (dist === "NegBin") {
+      paramsDiv.innerHTML = `<div class="row"><div class="col"><label>Size (r)</label><input id="param_size" type="number" value="2" /></div>
+                             <div class="col"><label>Prob (p)</label><input id="param_prob" type="number" value="0.5" step="0.01" /></div></div>`;
+    }
   }
 
-  // تحقق من seedrandom
-  if (typeof Math.seedrandom !== "function") {
-    console.warn("seedrandom غير محمل. نتائج البذرة ستكون غير قابلة للتكرار (seed غير فعال).");
-  }
+  distSelect.addEventListener("change", renderParams);
+  renderParams();
 
-  // دوال التوزيعات والمساعدة
+  themeToggle.addEventListener("click", () => document.body.classList.toggle("dark"));
+  themeColor.addEventListener("change", (e) => {
+    const c = e.target.value;
+    document.querySelectorAll("button").forEach(b => { b.style.background = c; });
+    const firstThead = document.querySelector("thead");
+    if (firstThead) firstThead.style.background = c;
+    document.documentElement.style.setProperty('--accent', c);
+  });
+
+  // RNG helpers
   function randomNormal(mean = 0, sd = 1) {
     let u = 0, v = 0;
     while (u === 0) u = Math.random();
@@ -63,15 +82,13 @@ document.addEventListener("DOMContentLoaded", () => {
     return count;
   }
 
-  // تحويل حرف لكود
   function charToCode(char) {
     if (/[A-Za-z]/.test(char)) {
       const idx = latin_letters.indexOf(char.toUpperCase());
       return { alpha: "latin", base: latin_letters.length, code: idx >= 0 ? idx : null };
-    } else if (arabic_letters.includes(char)) {
-      const idx = arabic_letters.indexOf(char);
-      return { alpha: "arabic", base: arabic_letters.length, code: idx >= 0 ? idx : null };
     }
+    const idxAr = arabic_letters.indexOf(char);
+    if (idxAr >= 0) return { alpha: "arabic", base: arabic_letters.length, code: idxAr };
     return { alpha: "other", base: null, code: null };
   }
 
@@ -82,87 +99,98 @@ document.addEventListener("DOMContentLoaded", () => {
     return codeObj.char || "";
   }
 
-  // توليد keystream مع seed (آمن)
+  function getParamsFromUI() {
+    const dist = distSelect.value;
+    const p = {};
+    if (dist === "Uniform") {
+      p.a = parseInt(document.getElementById("param_a").value || "0", 10);
+      p.b = parseInt(document.getElementById("param_b").value || "25", 10);
+    } else if (dist === "Normal") {
+      p.mean = parseFloat(document.getElementById("param_mean").value || "0");
+      p.sd = parseFloat(document.getElementById("param_sd").value || "2");
+    } else if (dist === "Poisson") {
+      p.lambda = parseFloat(document.getElementById("param_lambda").value || "2");
+    } else if (dist === "NegBin") {
+      p.size = parseInt(document.getElementById("param_size").value || "2", 10);
+      p.prob = parseFloat(document.getElementById("param_prob").value || "0.5");
+    }
+    return p;
+  }
+
   function generateKeystream(n, dist, params, seed) {
-    if (typeof seed === "number" && typeof Math.seedrandom === "function") {
-      Math.seedrandom(seed);
-    } else if (typeof seed === "number") {
-      // إذا seedrandom غير متوفر، نستخدم console.warn فقط
-      console.warn("Math.seedrandom غير متاح؛ سيتم استخدام Math.random غير المعتمدة على البذرة.");
+    if (typeof seed !== "undefined" && seed !== null && typeof Math.seedrandom === "function") {
+      Math.seedrandom(String(seed), { global: true });
     }
     const arr = [];
     for (let i = 0; i < n; i++) {
-      let val = 0;
+      let v = 0;
       switch (dist) {
-        case "Uniform":
-          val = Math.floor(Math.random() * (params.b - params.a + 1) + params.a);
-          break;
-        case "Normal":
-          val = Math.round(randomNormal(params.mean, params.sd));
-          break;
-        case "Poisson":
-          val = randomPoisson(params.lambda);
-          break;
-        case "NegBin":
-          val = randomNegBin(params.size, params.prob);
-          break;
-        default:
-          throw new Error("Unknown dist: " + dist);
+        case "Uniform": v = Math.floor(Math.random() * (params.b - params.a + 1) + params.a); break;
+        case "Normal": v = Math.round(randomNormal(params.mean, params.sd)); break;
+        case "Poisson": v = randomPoisson(params.lambda); break;
+        case "NegBin": v = randomNegBin(params.size, params.prob); break;
+        default: v = Math.floor(Math.random() * (params.b - params.a + 1) + params.a);
       }
-      arr.push(val);
+      arr.push(v);
     }
     return arr;
   }
 
-  // التشفير
   function encryptText(text, dist, params, seed) {
-    try {
-      const chars = Array.from(text).map(c => ({ char: c, ...charToCode(c) }));
-      const usedIdx = chars.map((v, i) => v.alpha !== "other" && v.code !== null ? i : null).filter(v => v !== null);
-      if (usedIdx.length === 0) return { ciphertext: text, keyUsed: [], chars };
-      const ks = generateKeystream(usedIdx.length, dist, params, seed);
-      let j = 0;
-      const keyUsed = [];
-      for (let i = 0; i < chars.length; i++) {
-        if (chars[i].alpha === "other" || chars[i].code === null) { keyUsed.push(null); continue; }
-        const base = chars[i].base;
-        const k = ((ks[j] % base) + base) % base;
-        keyUsed.push(k);
-        const newCode = ((chars[i].code + k) % base + base) % base;
-        chars[i].cipherChar = codeToChar({ alpha: chars[i].alpha, code: newCode });
-        j++;
-      }
-      return { ciphertext: chars.map(c => c.cipherChar || c.char).join(""), keyUsed, chars };
-    } catch (err) {
-      console.error("encryptText error:", err);
-      return { ciphertext: "", keyUsed: [], chars: [] };
+    const chars = Array.from(text).map(c => ({ char: c, ...charToCode(c) }));
+    const usedIdx = chars.map((v, i) => (v.alpha !== "other" && v.code !== null ? i : null)).filter(v => v !== null);
+    if (usedIdx.length === 0) {
+      window._lastKeyStream = [];
+      window._lastKeyMeta = null;
+      return { ciphertext: text, keyUsed: [], chars };
     }
+    const ks = generateKeystream(usedIdx.length, dist, params, seed);
+    const keyUsed = Array(chars.length).fill(null);
+    let j = 0;
+    for (let i = 0; i < chars.length; i++) {
+      if (chars[i].alpha === "other" || chars[i].code === null) continue;
+      const base = chars[i].base;
+      const k = ((ks[j] % base) + base) % base;
+      keyUsed[i] = k;
+      const newCode = ((chars[i].code + k) % base + base) % base;
+      chars[i].cipherChar = codeToChar({ alpha: chars[i].alpha, code: newCode });
+      j++;
+    }
+    window._lastKeyStream = keyUsed.slice();
+    window._lastKeyMeta = { dist, params: JSON.parse(JSON.stringify(params)), seed, length: usedIdx.length };
+    return { ciphertext: chars.map(c => c.cipherChar || c.char).join(""), keyUsed, chars };
   }
 
-  // فك التشفير
   function decryptText(text, dist, params, seed) {
-    try {
-      const chars = Array.from(text).map(c => ({ char: c, ...charToCode(c) }));
-      const usedIdx = chars.map((v, i) => v.alpha !== "other" && v.code !== null ? i : null).filter(v => v !== null);
-      if (usedIdx.length === 0) return { plaintext: text, chars };
-      const ks = generateKeystream(usedIdx.length, dist, params, seed);
-      let j = 0;
+    const chars = Array.from(text).map(c => ({ char: c, ...charToCode(c) }));
+    // prefer saved keystream if available and lengths match
+    if (Array.isArray(window._lastKeyStream) && window._lastKeyStream.length === chars.length) {
+      const saved = window._lastKeyStream;
       for (let i = 0; i < chars.length; i++) {
         if (chars[i].alpha === "other" || chars[i].code === null) continue;
         const base = chars[i].base;
-        const k = ((ks[j] % base) + base) % base;
-        const newCode = ((chars[i].code - k) % base + base) % base;
+        const k = saved[i] !== null && saved[i] !== undefined ? saved[i] : 0;
+        const newCode = ((chars[i].code - k + base) % base + base) % base;
         chars[i].plainChar = codeToChar({ alpha: chars[i].alpha, code: newCode });
-        j++;
       }
       return { plaintext: chars.map(c => c.plainChar || c.char).join(""), chars };
-    } catch (err) {
-      console.error("decryptText error:", err);
-      return { plaintext: "", chars: [] };
     }
+    // fallback: regenerate keystream based on seed/params
+    const usedIdx = chars.map((v, i) => (v.alpha !== "other" && v.code !== null ? i : null)).filter(v => v !== null);
+    if (usedIdx.length === 0) return { plaintext: text, chars };
+    const ks = generateKeystream(usedIdx.length, dist, params, seed);
+    let j = 0;
+    for (let i = 0; i < chars.length; i++) {
+      if (chars[i].alpha === "other" || chars[i].code === null) continue;
+      const base = chars[i].base;
+      const k = ((ks[j] % base) + base) % base;
+      const newCode = ((chars[i].code - k + base) % base + base) % base;
+      chars[i].plainChar = codeToChar({ alpha: chars[i].alpha, code: newCode });
+      j++;
+    }
+    return { plaintext: chars.map(c => c.plainChar || c.char).join(""), chars };
   }
 
-  // تحديث الجدول (محمي)
   function updateTable(id, chars, keys = [], cipher = false) {
     const table = document.getElementById(id);
     if (!table) return;
@@ -182,60 +210,65 @@ document.addEventListener("DOMContentLoaded", () => {
     table.appendChild(tbody);
   }
 
-  // الرسم (Chart.js) — حماية من عدم وجود عنصر
-  let chart = null;
   function updateChart(keys) {
     if (!chartCanvas) return;
     const ctx = chartCanvas.getContext("2d");
-    if (chart) try { chart.destroy(); } catch (e) { /* ignore */ }
+    if (chart) try { chart.destroy(); } catch (e) {}
     const data = keys.map(v => v === null ? 0 : v);
     chart = new Chart(ctx, {
       type: "bar",
       data: {
         labels: data.map((_, i) => i + 1),
-        datasets: [{ label: "Key Value", data, backgroundColor: data.map(v => `rgba(64,79,104,${Math.min(0.9, 0.2 + (v / (Math.max(...data || [1]) + 1)))} )`) }]
+        datasets: [{
+          label: "Key Value",
+          data,
+          backgroundColor: data.map(v => `rgba(64,79,104,${(0.35 + (v / (Math.max(...data || [1]) + 1))).toFixed(2)})`)
+        }]
       },
       options: { responsive: true, scales: { y: { beginAtZero: true } } }
     });
   }
 
-  // أحداث الأزرار — مع حماية
-  if (encryptBtn) {
-    encryptBtn.addEventListener("click", () => {
-      try {
-        const text = plaintextEl.value || "";
-        const dist = distSelect.value || "Uniform";
-        const seed = parseInt(seedEl.value || "0", 10);
-        const params = { a: 0, b: 25, mean: 0, sd: 2, lambda: 2, size: 2, prob: 0.5 };
-        const res = encryptText(text, dist, params, seed);
-        cipherOut.textContent = res.ciphertext;
-        updateTable("enc_table", res.chars, res.keyUsed, true);
-        updateChart(res.keyUsed);
-      } catch (e) {
-        console.error("encrypt handler error:", e);
-      }
-    });
-  }
+  encryptBtn.addEventListener("click", () => {
+    try {
+      const text = plaintextEl.value || "";
+      const dist = distSelect.value;
+      const seed = parseInt(seedEl.value || "0", 10);
+      const params = getParamsFromUI();
+      const res = encryptText(text, dist, params, seed);
+      cipherOut.textContent = res.ciphertext;
+      updateTable("enc_table", res.chars, res.keyUsed, true);
+      updateChart(res.keyUsed);
+    } catch (e) {
+      console.error("encrypt error", e);
+    }
+  });
 
-  if (decryptBtn) {
-    decryptBtn.addEventListener("click", () => {
-      try {
-        const text = cipherOut.textContent || "";
-        const dist = distSelect.value || "Uniform";
-        const seed = parseInt(seedEl.value || "0", 10);
-        const params = { a: 0, b: 25, mean: 0, sd: 2, lambda: 2, size: 2, prob: 0.5 };
-        const res = decryptText(text, dist, params, seed);
-        plainOut.textContent = res.plaintext;
-        updateTable("dec_table", res.chars, [], false);
-      } catch (e) {
-        console.error("decrypt handler error:", e);
-      }
-    });
-  }
+  decryptBtn.addEventListener("click", () => {
+    try {
+      const text = cipherOut.textContent || "";
+      const dist = distSelect.value;
+      const seed = parseInt(seedEl.value || "0", 10);
+      const params = getParamsFromUI();
+      const res = decryptText(text, dist, params, seed);
+      plainOut.textContent = res.plaintext;
+      updateTable("dec_table", res.chars, [], false);
+    } catch (e) {
+      console.error("decrypt error", e);
+    }
+  });
 
-  // اختياري: تنفيذ تلقائي مرة عند التحميل لعرض مثال اختبار
-  try {
-    encryptBtn && encryptBtn.click();
-  } catch (e) { /* ignore */ }
+  clearBtn.addEventListener("click", () => {
+    plaintextEl.value = "";
+    cipherOut.textContent = "";
+    plainOut.textContent = "";
+    encTable.innerHTML = "";
+    decTable.innerHTML = "";
+    if (chart) try { chart.destroy(); chart = null; } catch (e) {}
+    window._lastKeyStream = null;
+    window._lastKeyMeta = null;
+  });
 
-}); // DOMContentLoaded
+  // initial example run to show demo output
+  try { encryptBtn.click(); } catch (e) {}
+});
