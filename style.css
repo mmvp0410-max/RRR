@@ -1,0 +1,6 @@
+body { font-family: 'Tajawal', sans-serif; direction: rtl; background: #FFF; color: #000; }
+body.dark { background: #222; color: #EEE; }
+textarea, input, select { width: 100%; margin-bottom: 10px; }
+button { margin: 5px; padding: 10px; }
+table { border-collapse: collapse; width: 100%; margin-top: 10px; }
+table, th, td { border: 1px solid #ccc; padding: 5px; text-align: center; }
