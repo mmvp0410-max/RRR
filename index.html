@@ -1,13 +1,16 @@
 <!DOCTYPE html>
 <html lang="ar">
 <head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
 <title>تطبيق التشفير الاحترافي</title>
+
 <link rel="stylesheet" href="style.css">
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
-<script src="assets/seedrandom.min.js"></script>
-<script src="assets/chart.min.js"></script>
+
+<!-- Libraries (CDN ensures correct load order) -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/seedrandom/3.0.5/seedrandom.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
 </head>
 <body>
 <div class="container">
@@ -15,7 +18,8 @@
     <h1><i class="fas fa-shield-alt"></i> تطبيق التشفير بالاحتمالات</h1>
     <div class="theme-controls">
       <button id="toggleTheme"><i class="fas fa-moon"></i> تبديل الوضع الليلي</button>
-      <select id="themeColor">
+      <label for="themeColor" class="sr-only">Theme color</label>
+      <select id="themeColor" title="اختر لون الواجهة">
         <option value="#404F68">أزرق داكن</option>
         <option value="#7A859D">رمادي</option>
         <option value="#B9C1D0">فاتح</option>
@@ -25,45 +29,58 @@
     </div>
   </header>
 
-  <section class="input-section">
-    <label>النص الأصلي:</label>
-    <textarea id="plaintext">الرياضيات سر الأمن</textarea>
+  <main class="grid">
+    <section class="card input-section">
+      <label for="plaintext">النص الأصلي:</label>
+      <textarea id="plaintext" rows="4">الرياضيات سر الأمن</textarea>
 
-    <label>التوزيع الاحتمالي:</label>
-    <select id="dist">
-      <option value="Uniform">Uniform</option>
-      <option value="Normal">Normal</option>
-      <option value="Poisson">Poisson</option>
-      <option value="NegBin">Negative Binomial</option>
-    </select>
+      <div class="row">
+        <div class="col">
+          <label for="dist">التوزيع الاحتمالي:</label>
+          <select id="dist">
+            <option value="Uniform">Uniform</option>
+            <option value="Normal">Normal</option>
+            <option value="Poisson">Poisson</option>
+            <option value="NegBin">Negative Binomial</option>
+          </select>
+        </div>
 
-    <div id="params"></div>
+        <div class="col">
+          <label for="seed">بذرة التشفير (seed):</label>
+          <input id="seed" type="number" value="123" />
+        </div>
+      </div>
 
-    <label>بذرة التشفير:</label>
-    <input type="number" id="seed" value="123">
+      <div id="params" class="params">
+        <!-- parameter inputs rendered dynamically -->
+      </div>
 
-    <div class="buttons">
-      <button id="encrypt_btn"><i class="fas fa-lock"></i> تشفير</button>
-      <button id="decrypt_btn"><i class="fas fa-unlock"></i> فك التشفير</button>
-    </div>
-  </section>
+      <div class="buttons">
+        <button id="encrypt_btn"><i class="fas fa-lock"></i> تشفير</button>
+        <button id="decrypt_btn"><i class="fas fa-unlock"></i> فك التشفير</button>
+        <button id="clear_btn" class="muted"><i class="fas fa-eraser"></i> مسح</button>
+      </div>
+    </section>
 
-  <section class="output-section">
-    <h2>النص المشفر</h2>
-    <pre id="cipher_out"></pre>
+    <section class="card output-section">
+      <h2>النص المشفر</h2>
+      <pre id="cipher_out" class="output-box"></pre>
 
-    <h2>النص المفكك</h2>
-    <pre id="plain_out"></pre>
+      <h2>النص المفكك</h2>
+      <pre id="plain_out" class="output-box"></pre>
+    </section>
 
-    <h2>تحليل التشفير</h2>
-    <table id="enc_table"></table>
+    <section class="card analysis">
+      <h3>تحليل التشفير</h3>
+      <div class="table-wrap"><table id="enc_table"></table></div>
 
-    <h2>تحليل فك التشفير</h2>
-    <table id="dec_table"></table>
+      <h3>تحليل فك التشفير</h3>
+      <div class="table-wrap"><table id="dec_table"></table></div>
 
-    <h2>توزيع المفاتيح</h2>
-    <canvas id="dist_chart" height="150"></canvas>
-  </section>
+      <h3>توزيع المفاتيح</h3>
+      <canvas id="dist_chart" height="140"></canvas>
+    </section>
+  </main>
 </div>
 
 <script src="app.js"></script>
